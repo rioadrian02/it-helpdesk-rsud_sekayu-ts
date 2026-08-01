@@ -11,3 +11,31 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  admin
+  staff
+  operator
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  role          Role           @default(operator)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  roomId        String?
+  room          Room?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
+}
+
+model Room {
+  id            String         @id @default(cuid())
+  name          String         @db.VarChar(256)
+  description   String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  users         User[]
+}
