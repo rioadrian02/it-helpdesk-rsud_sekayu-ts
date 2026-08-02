@@ -18,16 +18,45 @@ enum Role {
   operator
 }
 
+enum TypeCategory {
+  letter
+  asset
+}
+
+enum ConditionAsset {
+  good
+  maintenance
+  broken
+}
+
+enum PriorityTicket {
+  low
+  normal
+  critical
+}
+
+enum StatusTicket{
+  pending
+  progress
+  done
+}
+
 model User {
   id            String         @id @default(cuid())
+  name          String         @db.VarChar(256)
   email         String         @unique
-  password      String
+  password      String         @db.VarChar(256)
   role          Role           @default(operator)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   roomId        String?
+
   room          Room?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  staff         Staff?
+  createdTickets Ticket[]      @relation("TicketCreator")
+  confirmedTickets Ticket[]    @relation("TicketConfirmer")
+
 }
 
 model Room {
@@ -38,4 +67,74 @@ model Room {
   updatedAt     DateTime       @updatedAt
   
   users         User[]
+  assets        Asset[]
+  tickets       Ticket[]
+}
+
+model Staff {
+  id            String         @id @default(cuid())
+  position      String         @db.VarChar(256)
+  phone         String         @db.VarChar(256)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  userId        String         @unique
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id            String         @id @default(cuid())
+  title         String         @db.VarChar(256)
+  description   String?        @db.Text
+  status        Boolean
+  type          TypeCategory
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  assets        Asset[]
+}
+
+model Asset {
+  id            String         @id @default(cuid())
+  assetCode     String         @unique
+  name          String         @db.VarChar(256)
+  condition     ConditionAsset
+  usedBy        String         @db.VarChar(256)
+  fiscalType    String         @db.VarChar(256)
+  fiscalYear    Int            @map("fiscal_year")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  categoryId    String         
+  roomId        String
+
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  room          Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+}
+
+model Ticket {
+  id            String         @id @default(cuid())
+  ticketCode    String         @unique
+  title         String         @db.VarChar(256)
+  description   String         @db.Text
+  priority      PriorityTicket
+  status        StatusTicket   @default(pending)
+  reporterNIP   String         @db.VarChar(256)
+  reporterName  String         @db.VarChar(256)
+  reporterPhone String         @db.VarChar(256)
+  feedback      String?        @db.Text
+  openedAt      DateTime       @db.Date
+  closedAt      DateTime?      
+  confirmedAt   DateTime?      @db.Timestamptz
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  roomId        String
+  createdBy     String
+  confirmedBy   String?
+
+  room          Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  creator       User           @relation("TicketCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  confirmer     User?          @relation("TicketConfirmer", fields: [confirmedBy], references: [id], onDelete: Restrict)
 }
