@@ -41,46 +41,63 @@ enum StatusTicket{
   done
 }
 
+enum LetterType {
+  incoming
+  outgoing
+  event
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String         @db.VarChar(256)
   email         String         @unique
   password      String         @db.VarChar(256)
   role          Role           @default(operator)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  status        Boolean        @default(true)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  roomId        String?
+  roomId        String?        @map("room_id")
 
   room          Room?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
   staff         Staff?
   createdTickets Ticket[]      @relation("TicketCreator")
   confirmedTickets Ticket[]    @relation("TicketConfirmer")
+  uploadTicketFiles TicketFiles[]
+  reviews       TicketReview[]
+  letters       Letter[]
 
+  @@map("users")
 }
 
 model Room {
   id            String         @id @default(cuid())
   name          String         @db.VarChar(256)
   description   String?        @db.Text
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
   
   users         User[]
   assets        Asset[]
   tickets       Ticket[]
+  letters       Letter[]
+
+  @@map("rooms")
 }
 
 model Staff {
   id            String         @id @default(cuid())
   position      String         @db.VarChar(256)
   phone         String         @db.VarChar(256)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  userId        String         @unique
+  userId        String         @unique @map("user_id")
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickets       TicketStaff[]
+
+  @@map("staffs")
 }
 
 model Category {
@@ -89,52 +106,160 @@ model Category {
   description   String?        @db.Text
   status        Boolean
   type          TypeCategory
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   assets        Asset[]
+  letters       Letter[]
+
+  @@map("categories")
 }
 
 model Asset {
   id            String         @id @default(cuid())
-  assetCode     String         @unique
+  assetCode     String         @unique @map("asset_code")
   name          String         @db.VarChar(256)
   condition     ConditionAsset
-  usedBy        String         @db.VarChar(256)
-  fiscalType    String         @db.VarChar(256)
+  usedBy        String         @db.VarChar(256) @map("used_by")
+  fiscalType    String         @db.VarChar(256) @map("fiscal_type")
   fiscalYear    Int            @map("fiscal_year")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  categoryId    String         
-  roomId        String
+  categoryId    String         @map("category_id")
+  roomId        String         @map("room_id")
 
   category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   room          Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  tickets       TicketAsset[]
+  assetLetters  AssetLetter[]
+
+  @@map("assets")
 }
 
 model Ticket {
   id            String         @id @default(cuid())
-  ticketCode    String         @unique
+  ticketCode    String         @unique @map("ticket_code")
   title         String         @db.VarChar(256)
   description   String         @db.Text
   priority      PriorityTicket
   status        StatusTicket   @default(pending)
-  reporterNIP   String         @db.VarChar(256)
-  reporterName  String         @db.VarChar(256)
-  reporterPhone String         @db.VarChar(256)
+  reporterNIP   String         @db.VarChar(256) @map("reporter_nip")
+  reporterName  String         @db.VarChar(256) @map("reporter_name")
+  reporterPhone String         @db.VarChar(256) @map("reporter_phone")
   feedback      String?        @db.Text
-  openedAt      DateTime       @db.Date
-  closedAt      DateTime?      
-  confirmedAt   DateTime?      @db.Timestamptz
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  openedAt      DateTime       @db.Date @map("opened_at")
+  closedAt      DateTime?      @map("closed_at")
+  confirmedAt   DateTime?      @db.Timestamptz @map("confirmed_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  roomId        String
-  createdBy     String
-  confirmedBy   String?
+  roomId        String         @map("room_id")
+  createdBy     String         @map("created_by")
+  confirmedBy   String?        @map("confirmed_by")
 
   room          Room           @relation(fields: [roomId], references: [id], onDelete: Restrict)
   creator       User           @relation("TicketCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  confirmer     User?          @relation("TicketConfirmer", fields: [confirmedBy], references: [id], onDelete: Restrict)
+  confirmer     User?          @relation("TicketConfirmer", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  files         TicketFiles[]
+  staffs        TicketStaff[]
+  assets        TicketAsset[]
+  reviews       TicketReview[]
+
+  @@map("tickets")
 }
+
+model TicketFiles {
+  id            String         @id @default(cuid())
+  filePath      String         @db.VarChar(256) @map("file_path")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  ticketId      String         @map("ticket_id")
+  uploadedBy    String         @map("uploaded_by")
+
+  ticket        Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploader      User           @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("ticket_files")
+}
+
+model Letter {
+  id           String     @id @default(cuid())
+  type         LetterType
+  letterNumber String     @db.VarChar(256) @map("letter_number")
+  title        String     @db.VarChar(256)
+  recipient    String?    @db.VarChar(256)
+  letterDate   DateTime   @db.Date         @map("letter_date")
+  filePath     String     @db.VarChar(256) @map("file_path")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  roomId     String? @map("room_id")
+  categoryId String? @map("category_id")
+  createdBy  String? @map("created_by")
+
+  room         Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  creator      User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  assetLetters AssetLetter[]
+
+  @@map("letters")
+}
+
+model AssetLetter {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assetId  String @map("asset_id")
+  letterId String @map("letter_id")
+
+  asset  Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  letter Letter @relation(fields: [letterId], references: [id], onDelete: Cascade)
+
+  @@map("asset_letters")
+}
+
+model TicketReview {
+  id            String         @id @default(cuid())
+  rating        Int            
+  description   String?        @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  ticketId      String         @map("ticket_id")
+  userId        String         @map("user_id")      
+
+  ticket        Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reviewer      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_reviews")
+}
+
+model TicketStaff {
+  id             String         @id @default(cuid())
+  ticketId       String         @map("ticket_id")
+  staffId        String         @map("staff_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  ticket         Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  staff         Staff           @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_staffs")
+}
+
+model TicketAsset {
+  id             String         @id @default(cuid())
+  ticketId       String         @map("ticket_id")
+  assetId        String         @map("asset_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  ticket         Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  asset          Asset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_assets")
+}
+
